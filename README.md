@@ -1,199 +1,168 @@
-<div align="center">
+# superagent · Agent 自动化中台
 
-# superagent
+**一个窗口管住所有 Agent 的活儿：写规则 → 派给 CodeBuddy / WorkBuddy / DeepSeek Harness → 每一轮都有据可查 → 会话同步回对应的 harness。**
 
-**把散落在各个 Agent 里的活儿，收进一个中台**
+不用来回切三个客户端，不用翻聊天记录找"上次那个任务跑完没有"，也不用担心会话只活在某个工具里。
 
-[![Version](https://img.shields.io/badge/version-v0.0-2f6f8f?style=flat-square)](https://github.com/Yangxiaolongismygirl/superagent/releases/tag/v0.0)
-[![Node](https://img.shields.io/badge/node-%3E%3D22-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4?style=flat-square&logo=windows&logoColor=white)](#快速开始)
-[![License](https://img.shields.io/badge/license-MIT-8a63d2?style=flat-square)](LICENSE)
-[![Private](https://img.shields.io/badge/repo-private-6b7280?style=flat-square&logo=github&logoColor=white)](#)
+![Agent 自动化中台 · 主界面](docs/images/overview.png)
 
-一个跑在本机的 Agent 自动化中台：定义规则、派活给 CodeBuddy / WorkBuddy / DeepSeek Harness，
-把每一轮的输入输出、会话、产物全部留痕，并把会话同步回对应的 harness。
+![version](https://img.shields.io/badge/version-v0.0-blue)
+![platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-lightgrey)
+![node](https://img.shields.io/badge/node-%E2%89%A522-green)
+![license](https://img.shields.io/badge/license-MIT-purple)
 
-</div>
-
-![中台总览](docs/images/overview.png)
+> **30 秒上手**：装好 Node 22+ 和一个跑着的 `agent-autoloop` hub → `cd console && node server.mjs` → 浏览器打开 `http://127.0.0.1:3360` → 在「当前中台」写规则，或在「会话」里点「新增会话」写一句话。
+> 界面上会看到它排队、开跑、产出结果；会话会同时出现在对应 harness 的列表里。
 
 ---
 
-## 目录
+## 它替你省掉的四个坑
 
-- [它解决什么问题](#它解决什么问题)
-- [功能一览](#功能一览)
-- [架构](#架构)
-- [快速开始](#快速开始)
-- [界面说明](#界面说明)
-- [会话同步](#会话同步)
-- [目录结构](#目录结构)
-- [v0.0 的边界](#v00-的边界)
-- [路线图](#路线图)
-- [License](#license)
+| 原来的坑 | 现在 |
+|---|---|
+| 三个 Agent 客户端各开一个窗口，跑没跑完得挨个点开看 | **一个「当前中台」全看完**：在跑 / 排队 / 等你 / 已完成，连下次触发时间都在行上 |
+| 跑完只回一句"已完成"，产物在哪、依据是什么全不知道 | 每轮落 `context.json`，会话原文、产物清单、思维链全能在会话详情里翻 |
+| 会话只在某个工具里，换台机器/换个客户端就"没了" | **按 Agent 定向同步**：国内版的会话进 `.workbuddy`，国际版进 `.workbuddy-ai`，dsh 进 `.dsh` |
+| 界面上点了一下没反应，也不知道是没发出去还是后端挂了 | 底部**操作日志**：每个 `/api/*` 调用都带状态码和耗时，展开就能看 |
 
 ---
 
-## 它解决什么问题
+## 数据怎么流
 
-同时用好几个 Agent 工具的人，都会遇到同一组麻烦：
-
-| 痛点 | 具体表现 | superagent 的做法 |
-|---|---|---|
-| 活儿散在各处 | 一会儿在 CodeBuddy，一会儿开 WorkBuddy，记不清哪个跑完了 | 统一「规则 → 轮次」视图，一眼看到在跑 / 排队 / 已完成 |
-| 干了什么说不清 | 跑完只有一句"已完成"，没有产物、没有依据 | 每轮落地 `context.json`、会话原文、产物清单、思维链 |
-| 会话找不回来 | 换工具就看不到之前的上下文 | 会话列表聚合多个 harness，可续派、可导入 |
-| 出问题没法查 | 界面上点了一下，背后发生了什么完全不知道 | 底部操作日志：每个接口调用带状态码和耗时 |
-
-## 功能一览
-
-<table>
-<tr><td width="50%" valign="top">
-
-**工作台**
-
-- 卡片式决策：要你拍板的事集中在一处
-- 一键"允许 / 驳回 / 改主意"，决策回写 hub
-- KPI：等你 / 在跑 / 排队 / 今天做完
-
-**当前中台**
-
-- 规则列表：下次触发时间、暂停、跳过、立即跑
-- 轮次列表：状态、耗时、摘要、产物
-- 「在线」栏：Agent / 通道 / 来源，谁在线一眼看到
-
-</td><td width="50%" valign="top">
-
-**会话**
-
-- 按 Agent 分组，支持搜索
-- 详情：用户/助手消息、工具调用、产物、思维链
-- 续派：直接在原会话里接着派活
-- 重命名、归档、导入到指定项目
-
-**运维**
-
-- 底部操作日志，可展开 / 收起 / 清空
-- `verify.mjs` 五层自检，改完先自己验
-- 指纹去重，数据没变不重绘，界面不闪
-
-</td></tr>
-</table>
-
-## 架构
-
-![架构](docs/images/architecture.svg)
-
-三层，各管各的：
-
-| 层 | 职责 | 实现 |
-|---|---|---|
-| **Hub** | 规则装载、事件路由、轮次调度、卡片投影 | `agent-autoloop`（外部依赖，跑在 `:3350`） |
-| **中台** | 人看的界面 + 把操作翻译成 hub 调用 | `console/server.mjs`（Node 原生 HTTP，零依赖） |
-| **同步** | 把中台会话镜像进各 harness 的存储 | `console/sync.mjs` + `console/dsh-sync.mjs` |
-
-## 快速开始
-
-**前置**：Node ≥ 22（用到 `node:sqlite` 和 `node:zlib` 的 zstd）、一个跑着的 `agent-autoloop` hub。
-
-```bash
-# 1. 起中台
-cd console
-node server.mjs
-# → Console ready: http://127.0.0.1:3360
-
-# 2. 自检（语法 / 接口 / 快照契约 / 渲染 / 界面）
-node verify.mjs
-
-# 3. 会话同步（常驻，server 启动时会自动带起）
-node sync.mjs --watch
+```mermaid
+flowchart LR
+  R["规则 rules.json<br/>什么时候 / 派给谁 / 做什么"] --> H["Hub :3350<br/>装载规则<br/>路由事件"]
+  E["事件 /v1/events"] --> H
+  H --> W["Worker<br/>起一轮 Agent"]
+  W --> C["Claude Code 式会话<br/>~/.codebuddy/projects"]
+  C --> S["中台 :3360<br/>轮次 / 会话 / 卡片"]
+  S --> Y["sync.mjs<br/>5s 比对字节数"]
+  Y --> A["WorkBuddy 国内版"]
+  Y --> B["WorkBuddy AI"]
+  Y --> D["DeepSeek Harness"]
 ```
 
-Windows 下还可以直接双击 `启动控制台.cmd`，或用 `start-hidden.ps1` 静默启动。
+三段各管各的：**Hub** 只管调度，**中台**只管给人看和把点击翻译成调用，**同步**只管把会话落到对应 harness 的存储里。
 
-**配置**：中台读 hub 的 `config.json` 取 `source.key`；规则文件在 `%USERPROFILE%\.agent-autoloop\rules.json`。
+---
 
-## 界面说明
+## 中台长什么样
 
-三个页签，加一条常驻底栏。
-
-### 会话
+### 会话页：按 Agent 分组，能续派
 
 ![会话页](docs/images/sessions.png)
 
-- 顶部搜索：输入关键词回车，匹配会话正文
-- 每个分组右上角有「新增会话」，带「可续接」标记的是 ACP Agent
+- 顶部搜索框回车，匹配会话**正文**（不只是标题）
+- 带「可续接」标记的是 ACP Agent，可以在原会话里直接接着派活
 - 行内三个动作：重命名 ✎ / 导入到项目 ⇥ / 归档 🗑
 
-### DeepSeek Harness 分组
+### DeepSeek Harness 也在同一张列表里
 
 ![dsh 分组](docs/images/dsh-group.png)
 
-dsh 的会话是 **zstd 压缩的 JSONL**，中台直接解压读取，所以它能和本地 Agent 排在同一张列表里；
-分组带「新建会话」，写进去的是 dsh 自己的 v4 格式。
+dsh 的会话是 **zstd 压缩的 JSONL**（`session.v4.jsonl.zstd`）。中台直接解压读取，所以它和本地 Agent 排在一起；
+分组右上角的「新建会话」写进去的就是 dsh 自己的 v4 格式，不是伪造的文本。
 
 ### 底部操作日志
 
-所有 `/api/*` 调用都会留一条：方法、路径、状态码、耗时。
-
 ```
-操作日志 42                    17:52:31 GET /api/state → 200 (12ms)         清空  展开 ▴
+操作日志 42                    17:52:31 GET /api/state → 200 (12ms)          清空  展开 ▴
 ```
 
-保留最近 300 条（`localStorage`），刷新不丢。
+所有 `/api/*` 调用自动留痕（方法、路径、状态码、耗时），保留最近 300 条，刷新不丢。
 
-## 会话同步
+---
 
-`sync.mjs` 每 5 秒比对会话文件字节数，**变了就整份重推**。判据很土但可靠：有新内容，文件一定变长。
+## 只需要填三样
 
-**定向同步**——会话属于谁，就只写谁：
-
-| 会话来自 | 落到 | 具体位置 |
+| 字段 | 填什么 | 说明 |
 |---|---|---|
-| WorkBuddy 国内版 | `~/.workbuddy` | `projects/<cwd>/<id>.jsonl` + `workbuddy.db` 的 `sessions` |
+| **派给谁** | CodeBuddy 国际版 / WorkBuddy 国内版 / DeepSeek Harness | 传显示名或 id 都认，内部会校验 |
+| **会话名字** | 比如「主城灯光检查」 | 会成为规则名，也是 harness 里的会话标题 |
+| **要做的事** | 一句话需求 | **这句话会原样出现在会话的第一条消息里** |
+
+> 工作目录不用手填，默认落在最近用过的项目上；模型不填就用 Agent 的默认。
+
+---
+
+## 会话落到哪
+
+同步不是"全推三个"，而是**谁的就写谁的**——早期版本全量推，导致国内版的会话在 dsh 里冒出来，这个问题已经修掉。
+
+| 会话来自 | 落到 | 路径 |
+|---|---|---|
+| WorkBuddy 国内版 | `~/.workbuddy` | `projects/<cwd>/<id>.jsonl` + `workbuddy.db` 的 `sessions` 表 |
 | CodeBuddy 国际版 | `~/.workbuddy-ai` | 同上 |
 | DeepSeek Harness | `~/.dsh` | `sessions/--<cwd>--/session-<id>/session.v4.jsonl.zstd` |
 
-早期版本是"全量推三个"，结果国内版的会话会在 dsh 里冒出来——现在不会了。
+同步的判据很土但可靠：**会话文件字节数变了就整份重推**，5 秒一轮。
 
-**续接语义**：同一个会话再派活，`created_at` 保留首次的值，只更新 `updated_at` 和内容，不会新建会话。
+**续接语义**：同一个会话再派活，`created_at` 保留首次的值，只更新 `updated_at` 和内容，不会新建一条。
 
-## 目录结构
+---
 
+## 环境要求
+
+| 依赖 | 要求 | 说明 |
+|---|---|---|
+| 系统 | Windows 10 / 11 | 路径处理、批处理编码、`%APPDATA%` 结构都按 Windows 写的 |
+| Node | ≥ 22 | 用到 `node:sqlite` 和 `node:zlib` 的 zstd；零第三方依赖 |
+| agent-autoloop | 跑在 `:3350` | 中台是它的界面层，不内嵌 hub |
+| 浏览器 | Edge / Chrome 较新版本 | 只需要支持 `backdrop-filter` 和 CSS 变量 |
+| DeepSeek Harness（可选） | 已安装 | 不装只是没有 dsh 分组 |
+
+---
+
+## 已跑通的量
+
+| 项 | 结果 |
+|---|---|
+| 自检脚本 `verify.mjs` | 15 项，13 通过 / 2 跳过（无头浏览器 dump-dom 这台机器起不来） |
+| 会话同步 | 国内版 / 国际版 / dsh 三条链路各自端到端跑通，续派后 harness 侧能看到新内容 |
+| 新建会话 | 连续建 5 个（含中文名、单字名），规则全部落盘，会话全部出现 |
+| 会话读取 | 中台 30+ 条、dsh 5 条（zstd 解压），详情页正文完整 |
+
+---
+
+## 从源码跑起来
+
+```bash
+cd console
+node server.mjs        # → http://127.0.0.1:3360
+node verify.mjs        # 五层自检：语法 / 接口 / 快照契约 / 渲染 / 界面
+node sync.mjs --watch  # 会话同步（server 启动时会自动带起）
 ```
-superagent/
-├── console/
-│   ├── server.mjs            # 中台服务（HTTP + 静态资源 + 全部 API）
-│   ├── sync.mjs              # 会话同步 worker
-│   ├── dsh-sync.mjs          # DeepSeek Harness 适配器（读写 zstd v4）
-│   ├── verify.mjs            # 五层自检
-│   ├── smoke.mjs             # 假 DOM 渲染自检
-│   ├── cdp.mjs               # 极简 CDP 客户端（连 Electron 调试端口）
-│   ├── public/
-│   │   ├── index.html        # 页面骨架 + 样式
-│   │   └── app.js            # 全部前端逻辑
-│   ├── 启动控制台.cmd
-│   └── start-hidden.ps1
-└── docs/
-    └── images/
-```
 
-## v0.0 的边界
+Windows 下也可以直接双击 `启动控制台.cmd`，或用 `start-hidden.ps1` 静默启动（配计划任务开机自启）。
 
-写清楚，免得误会：
+---
 
-- **CodeBuddy IDE 只能列出会话，正文拿不到**。它是 VS Code 分支，对话内容由云端 agent 服务持有，本地只有索引；我们把索引写进去了，正文服务端没有，所以点开是空的。
-- **dsh 的新会话要重启它才看得到**。它启动时扫描会话目录并缓存，外部写入的目录需要重启后才会出现在列表。
-- **同步是整份重写**，不是增量追加。harness 侧的 `updated_at` 每次刷新，会话会被顶到列表前面。
-- **只验证过 Windows**。路径处理、GBK 批处理、`%APPDATA%` 结构都是按 Windows 写的。
+## 常见问题
 
-## 路线图
+**Q：新建会话报「规则没被中台接管」？**
+说明 `rules.json` 写完但 hub 没装载成功。中台现在用「临时文件 + rename」原子写，并轮询确认；还报这个错，检查是不是有别的程序在改同一个文件。
 
-- [ ] 把 hub 也收进仓库，做成一键启动
-- [ ] 会话同步改成增量追加，避免列表置顶
-- [ ] 支持 Linux / macOS 的 harness 路径
-- [ ] 中台内直接查看 dsh 会话的思维链
+**Q：新建了会话，会话页半天没有？**
+会话文件要等**第一轮跑完**才产生（约 30–60 秒）。页面每 5 秒自动拉一次，跑完会自己出现。
 
-## License
+**Q：harness 里点开是空的？**
+CodeBuddy IDE 是例外——它是 VS Code 分支，对话正文在云端，本地只有索引，导入后能列出条目但正文为空。WorkBuddy 两个版本和 dsh 都是本地存储，正常有正文。
 
-[MIT](LICENSE) © 2026 Yangxiaolongismygirl
+**Q：dsh 里看不到刚推过去的会话？**
+dsh 启动时扫描会话目录并缓存，外部写入的目录要**重启 dsh** 才看得到。另外它的会话按工作区分组，切到对应的那个工作区才会显示。
+
+**Q：界面每秒闪一下？**
+已经修了：现在用数据指纹去重，内容没变就不重建 DOM。还闪的话 Ctrl+F5 强刷一次拿新前端。
+
+---
+
+## 版本
+
+### v0.0
+
+首个可用版本。
+
+- 三视图：工作台（卡片决策）/ 当前中台（规则 + 轮次）/ 会话（分组 + 详情 + 续派）
+- 会话导入与定向同步：WorkBuddy 国内版、WorkBuddy AI、DeepSeek Harness
+- dsh 适配器：zstd v4 的读写，能在中台里新建 dsh 会话
+- 底部操作日志、五层自检脚本、指纹去重
