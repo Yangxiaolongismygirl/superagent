@@ -11,7 +11,7 @@
 ![node](https://img.shields.io/badge/node-%E2%89%A522-green)
 ![license](https://img.shields.io/badge/license-MIT-purple)
 
-> **30 秒上手**：装好 Node 22+ 和一个跑着的 `agent-autoloop` hub → `cd console && node server.mjs` → 浏览器打开 `http://127.0.0.1:3360` → 在「当前中台」写规则，或在「会话」里点「新增会话」写一句话。
+> **30 秒上手**：装好 Node 24+ → `cd hub && node bin/agent-autoloop.ts up` 起调度器 → 另开一个终端 `cd console && node server.mjs` → 浏览器打开 `http://127.0.0.1:3360` → 在「当前中台」写规则，或在「会话」里点「新增会话」写一句话。
 > 界面上会看到它排队、开跑、产出结果；会话会同时出现在对应 harness 的列表里。
 
 ---
@@ -101,13 +101,38 @@ dsh 的会话是 **zstd 压缩的 JSONL**（`session.v4.jsonl.zstd`）。中台�
 
 ---
 
+## 仓库结构
+
+```text
+superagent/
+├── hub/                        # 调度器：agent-autoloop v1.8.3 源码副本（MIT）
+│   ├── bin/  cli/  kernel/  host/  protocol/
+│   ├── plugins/  examples/  tests/  docs/
+│   └── VENDOR.md               # 来源、版本、许可、怎么更新
+├── console/                    # 中台
+│   ├── server.mjs              # HTTP + 全部 API
+│   ├── sync.mjs                # 会话同步 worker
+│   ├── dsh-sync.mjs            # DeepSeek Harness 适配器（zstd v4）
+│   ├── verify.mjs              # 五层自检
+│   ├── smoke.mjs               # 假 DOM 渲染自检
+│   ├── cdp.mjs                 # 极简 CDP 客户端
+│   ├── public/                 # 页面与前端逻辑
+│   └── 启动控制台.cmd
+└── docs/images/                # 截图与架构图
+```
+
+运行时数据不在这里，在 `%USERPROFILE%\.agent-autoloop\`（规则、卡片、轮次、密钥），
+这个目录**不要**提交，`hub/VENDOR.md` 里列了它的结构。
+
+---
+
 ## 环境要求
 
 | 依赖 | 要求 | 说明 |
 |---|---|---|
 | 系统 | Windows 10 / 11 | 路径处理、批处理编码、`%APPDATA%` 结构都按 Windows 写的 |
-| Node | ≥ 22 | 用到 `node:sqlite` 和 `node:zlib` 的 zstd；零第三方依赖 |
-| agent-autoloop | 跑在 `:3350` | 中台是它的界面层，不内嵌 hub |
+| Node | ≥ 24 | hub 要求 24+；中台本身零第三方依赖 |
+| agent-autoloop | **已内置** `hub/`（v1.8.3） | 不用另外安装，`cd hub && node bin/agent-autoloop.ts up` 即可 |
 | 浏览器 | Edge / Chrome 较新版本 | 只需要支持 `backdrop-filter` 和 CSS 变量 |
 | DeepSeek Harness（可选） | 已安装 | 不装只是没有 dsh 分组 |
 
@@ -127,6 +152,11 @@ dsh 的会话是 **zstd 压缩的 JSONL**（`session.v4.jsonl.zstd`）。中台�
 ## 从源码跑起来
 
 ```bash
+# 终端 1：调度器（仓库自带）
+cd hub
+node bin/agent-autoloop.ts up      # → :3350
+
+# 终端 2：中台
 cd console
 node server.mjs        # → http://127.0.0.1:3360
 node verify.mjs        # 五层自检：语法 / 接口 / 快照契约 / 渲染 / 界面
@@ -166,3 +196,4 @@ dsh 启动时扫描会话目录并缓存，外部写入的目录要**重启 dsh*
 - 会话导入与定向同步：WorkBuddy 国内版、WorkBuddy AI、DeepSeek Harness
 - dsh 适配器：zstd v4 的读写，能在中台里新建 dsh 会话
 - 底部操作日志、五层自检脚本、指纹去重
+- 内置 hub（agent-autoloop v1.8.3），下载即跑
